@@ -1,29 +1,14 @@
-# Get default VPC
-data "aws_vpc" "default" {
-  default = true
-}
-
-# Latest Ubuntu 22.04 LTS (Jammy) AMI for the chosen region
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-}
-
-# Security group allowing SSH (tighten ssh_cidr later)
-resource "aws_security_group" "ssh" {
-  name        = "tf-ssh"
-  description = "Allow SSH"
+# Security group to allow SSH from your IP
+resource "aws_security_group" "ssh_access" {
+  name        = "terraform-demo-sg"
+  description = "Allow SSH inbound"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.ssh_cidr]
+    cidr_blocks = [var.my_ip]
   }
 
   egress {
@@ -32,15 +17,25 @@ resource "aws_security_group" "ssh" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = var.default_tags
 }
 
+# Get default VPC
+data "aws_vpc" "default" {
+  default = true
+}
+
+# EC2 instance
 resource "aws_instance" "demo" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
+  ami                    = "ami-0c02fb55956c7d316"  # Amazon Linux 2 Free Tier
+  instance_type          = "t3.micro"               # Free Tier eligible
   key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.ssh.id]
+  vpc_security_group_ids = [aws_security_group.ssh_access.id]
+  associate_public_ip_address = true
 
-  tags = merge(var.default_tags, { Name = "terraform-ec2-demo" })
+  tags = {
+    Name = "TerraformDemoInstance"
+  }
 }
+
+
+
